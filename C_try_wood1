@@ -1,0 +1,199 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdbool.h>
+#include <math.h>
+
+typedef struct entity_s{
+    int base_x;
+    int base_y;
+    int ent_count;
+    int id;
+    // 0=monster, 1=your hero, 2=opponent hero
+    int type;
+    // Position of this entity
+    int x;
+    int y;
+    // Ignore for this league; Count down until shield spell fades
+    int shield_life;
+    // Remaining health of this monster
+    int is_controlled;
+    int health;
+    // Trajectory of this monster
+    int vx;
+    int vy;
+    // 0=monster with no target yet, 1=monster targeting a base
+    int near_base;
+    // Given this monster's trajectory, is it a threat to 1=your base, 2=your opponent's base, 0=neither
+    int threat_for;
+}   entity_t;
+
+typedef struct hero_s{
+    int base_x;
+    int base_y;
+    int ent_count;
+    int id;
+    int x;
+    int y;
+}   hero_t;
+
+typedef struct s_dot{
+    int x;
+    int y;
+    int v_x;
+    int v_y;
+}   t_dot;
+
+int dist(int a, int b, int x, int y)
+{
+    return (sqrt((x - a) * (x - a)  + (y - b) * (y - b)));
+}
+
+t_dot   def_placement(hero_t hero, int i)
+{
+    t_dot   coords;
+
+    if (hero.base_x < 1000)
+    {
+        if (i == 0)
+        {
+            coords.x = 4830;
+            coords.y = 1295;
+        }
+        else if (i == 1)
+        {
+            coords.x = 3535;
+            coords.y = 3535;
+        }
+        else if (i == 2)
+        {
+            coords.x = 1295;
+            coords.y = 4830;
+        }
+    }
+    else
+    {
+        if (i == 0)
+        {
+            coords.x = 13170;
+            coords.y = 7705;
+        }
+        else if (i == 1)
+        {
+            coords.x = 14565;
+            coords.y = 14565;
+        }
+        else if (i == 2)
+        {
+            coords.x = 16705;
+            coords.y = 4170;
+        }
+    }
+    return (coords);
+}
+
+entity_t *is_closer(entity_t *new, entity_t *target)
+{
+    if (!target && new->type)
+        return (NULL);
+    else if (!target && !new->type || new->near_base == 1 && target->near_base == 0 || dist(new->x, new->y, new->base_x, new->base_y) < dist(target->x, target->y, target->base_x, target->base_y))
+        return (new);
+    else
+        return (target);
+}
+
+entity_t *closest_monster(entity_t *ents)
+{
+    entity_t *target_monster;
+
+    target_monster = NULL;
+    for (int i = 0; i < ents->ent_count; i++)
+    {
+        if (!ents[i].type && ents[i].threat_for == 1)
+            target_monster = is_closer(&ents[i], target_monster);
+    }
+    return (target_monster);
+}
+
+t_dot intercept(hero_t *hero, entity_t *monster)
+{
+    int distance;
+    t_dot   cap;
+
+    distance = dist(hero->x, hero->y, monster->x, monster->y);
+    cap.x = monster->x + monster->vx * (distance / 1500);
+    cap.y = monster->y + monster->vy * (distance / 1500);
+    cap.v_x = cap.x - hero->x;
+    cap.v_y = cap.y - hero->y;
+    return (cap);
+}
+
+int main()
+{
+    // The corner of the map representing your base
+    int base_x;
+    int base_y;
+    scanf("%d%d", &base_x, &base_y);
+    // Always 3
+    int heroes_per_player;
+    scanf("%d", &heroes_per_player);
+    hero_t  *heroes;
+    heroes = malloc(sizeof(hero_t) * 3);
+    // game loop
+    while (1) {
+        for (int i = 0; i < 2; i++) {
+            // Each player's base health
+            int health;
+            int mana;
+            scanf("%d%d", &health, &mana);
+        }
+        // Amount of heros and monsters you can see
+        int entity_count;
+        scanf("%d", &entity_count);
+        entity_t *ents;
+        ents = malloc(sizeof(entity_t) * entity_count);
+        for (int i = 0; i < entity_count; i++) {
+            int id;
+            int shield_life;
+            int is_controlled;
+            int type;
+            int x;
+            int y;
+            int health;
+            int vx;
+            int vy;
+            int near_base;
+            int threat_for;
+            scanf("%d%d%d%d%d%d%d%d%d%d%d", &ents[i].id, &ents[i].type, &ents[i].x, &ents[i].y, &ents[i].shield_life, &ents[i].is_controlled, &ents[i].health, &ents[i].vx, &ents[i].vy, &ents[i].near_base, &ents[i].threat_for);
+            ents[i].base_x = base_x;
+            ents[i].base_y = base_y;
+            ents[i].ent_count = entity_count;
+        }
+        int j = 0;
+        for (int i = 0; i < entity_count; i++)
+        {
+            if (ents[i].type == 1)
+            {
+                heroes[j].x = ents[i].x;
+                heroes[j].y = ents[i].y;
+                heroes[j].id = ents[i].id;
+                heroes[j].base_x = base_x;
+                heroes[j].base_y = base_y;
+                j++;
+            }
+        }
+        for (int i = 0; i < heroes_per_player; i++){
+            t_dot cap;
+            entity_t *target;
+            target = closest_monster(ents);
+            if (!target)
+                cap = def_placement(heroes[i], i);
+            else
+                cap = intercept(&heroes[i], target);
+            printf("MOVE %d %d\n", cap.x, cap.y);
+            // To debug: fprintf(stderr, "Debug messages...\n")
+        }
+        free(ents);
+    }
+    return 0;
+}
