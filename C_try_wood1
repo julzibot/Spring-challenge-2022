@@ -26,6 +26,7 @@ typedef struct entity_s{
     int near_base;
     // Given this monster's trajectory, is it a threat to 1=your base, 2=your opponent's base, 0=neither
     int threat_for;
+    int danger;
 }   entity_t;
 
 typedef struct hero_s{
@@ -35,7 +36,15 @@ typedef struct hero_s{
     int id;
     int x;
     int y;
+    int mana;
 }   hero_t;
+
+typedef struct s_place{
+    int radius;
+    float wing_angle;
+    float center_angle;
+    int i;
+}   r_place;
 
 typedef struct s_dot{
     int x;
@@ -49,44 +58,44 @@ int dist(int a, int b, int x, int y)
     return (sqrt((x - a) * (x - a)  + (y - b) * (y - b)));
 }
 
-t_dot   def_placement(hero_t hero, int i)
+t_dot   def_placement(hero_t hero, r_place pos)
 {
     t_dot   coords;
 
     if (hero.base_x < 1000)
     {
-        if (i == 0)
+        if (pos.i == 0)
         {
-            coords.x = 4830;
-            coords.y = 1295;
+            coords.x = cos(pos.wing_angle) * pos.radius;
+            coords.y = sin(pos.wing_angle) * pos.radius;
         }
-        else if (i == 1)
+        else if (pos.i == 1)
         {
-            coords.x = 3535;
-            coords.y = 3535;
+            coords.x = cos(pos.center_angle) * (pos.radius + 1200);
+            coords.y = sin(pos.center_angle) * (pos.radius + 1200);
         }
-        else if (i == 2)
+        else if (pos.i == 2)
         {
-            coords.x = 1295;
-            coords.y = 4830;
+            coords.x = sin(pos.wing_angle) * pos.radius;
+            coords.y = cos(pos.wing_angle) * pos.radius;
         }
     }
     else
     {
-        if (i == 0)
+        if (pos.i == 0)
         {
-            coords.x = 13170;
-            coords.y = 7705;
+            coords.x = 18000 - cos(pos.wing_angle) * pos.radius;
+            coords.y = 9000 - sin(pos.wing_angle) * pos.radius;
         }
-        else if (i == 1)
+        else if (pos.i == 1)
         {
-            coords.x = 14565;
-            coords.y = 14565;
+            coords.x = 18000 - cos(pos.center_angle) * (pos.radius + 1200);
+            coords.y = 9000 - sin(pos.center_angle) * (pos.radius + 1200);
         }
-        else if (i == 2)
+        else if (pos.i == 2)
         {
-            coords.x = 16705;
-            coords.y = 4170;
+            coords.x = 18000 - sin(pos.wing_angle) * pos.radius;
+            coords.y = 9000 - cos(pos.wing_angle) * pos.radius;
         }
     }
     return (coords);
@@ -112,6 +121,8 @@ entity_t *closest_monster(entity_t *ents)
         if (!ents[i].type && ents[i].threat_for == 1)
             target_monster = is_closer(&ents[i], target_monster);
     }
+    if (target_monster != NULL && dist(ents->base_x, ents->base_y, target_monster->x, target_monster->y) < 3000)
+        target_monster->danger = 1;
     return (target_monster);
 }
 
@@ -121,10 +132,21 @@ t_dot intercept(hero_t *hero, entity_t *monster)
     t_dot   cap;
 
     distance = dist(hero->x, hero->y, monster->x, monster->y);
-    cap.x = monster->x + monster->vx * (distance / 1500);
-    cap.y = monster->y + monster->vy * (distance / 1500);
-    cap.v_x = cap.x - hero->x;
-    cap.v_y = cap.y - hero->y;
+    cap.x = monster->x/* + monster->vx * (distance / 1500)*/;
+    cap.y = monster->y/* + monster->vy * (distance / 1500)*/;
+    return (cap);
+}
+
+t_dot fus_roh_dah(hero_t *hero)
+{
+    t_dot   cap;
+    int vx;
+    int vy;
+
+    vx = hero->x - hero->base_x;
+    vy = hero->y - hero->base_y;
+    cap.x = hero->x + vx;
+    cap.y = hero->y + vy;
     return (cap);
 }
 
@@ -145,6 +167,7 @@ int main()
             // Each player's base health
             int health;
             int mana;
+            heroes->mana = mana;
             scanf("%d%d", &health, &mana);
         }
         // Amount of heros and monsters you can see
@@ -153,17 +176,6 @@ int main()
         entity_t *ents;
         ents = malloc(sizeof(entity_t) * entity_count);
         for (int i = 0; i < entity_count; i++) {
-            int id;
-            int shield_life;
-            int is_controlled;
-            int type;
-            int x;
-            int y;
-            int health;
-            int vx;
-            int vy;
-            int near_base;
-            int threat_for;
             scanf("%d%d%d%d%d%d%d%d%d%d%d", &ents[i].id, &ents[i].type, &ents[i].x, &ents[i].y, &ents[i].shield_life, &ents[i].is_controlled, &ents[i].health, &ents[i].vx, &ents[i].vy, &ents[i].near_base, &ents[i].threat_for);
             ents[i].base_x = base_x;
             ents[i].base_y = base_y;
@@ -182,15 +194,30 @@ int main()
                 j++;
             }
         }
+        r_place pos;
+        pos.radius = 6000;
+        pos.wing_angle = 3.14 / 8;
+        pos.center_angle = 3.14 / 4;
         for (int i = 0; i < heroes_per_player; i++){
             t_dot cap;
+            t_dot out_vect;
             entity_t *target;
             target = closest_monster(ents);
             if (!target)
-                cap = def_placement(heroes[i], i);
+            {
+                pos.i = i;
+                cap = def_placement(heroes[i], pos);
+                printf("MOVE %d %d\n", cap.x, cap.y);
+            }
             else
+            {
                 cap = intercept(&heroes[i], target);
-            printf("MOVE %d %d\n", cap.x, cap.y);
+                out_vect = fus_roh_dah(&heroes[i]);
+                if (target->danger == 1 && heroes->mana > 10 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 1280)
+                    printf("SPELL WIND %d %d\n", out_vect.x, out_vect.y);
+                else
+                    printf("MOVE %d %d\n", cap.x, cap.y);
+            }
             // To debug: fprintf(stderr, "Debug messages...\n")
         }
         free(ents);
