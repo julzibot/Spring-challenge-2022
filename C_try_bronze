@@ -121,9 +121,13 @@ entity_t *is_closer(entity_t *new, entity_t *target)
 
 entity_t *is_closer_to_enemy(entity_t *new, entity_t *target)
 {
-    if (!target && new->type != 2)
-        return (NULL);
-    else if ((target && (!new->type || new->type == 2)) || new->near_base == 1 || dist(new->x, new->y, Abs(new->base_x - 18000), Abs(new->base_y - 9000)) < dist(target->x, target->y, Abs(target->base_x - 18000), Abs(target->base_y - 9000)))
+    if (!target)
+        return (new);
+    else if ((new->threat_for == 2 && dist(new->x, new->y, Abs(new->base_x - 18000), Abs(new->base_y - 9000)) < dist(target->x, target->y, Abs(target->base_x - 18000), Abs(target->base_y - 9000))))
+        return (new);
+    else if ((!new->type && dist(new->x, new->y, Abs(new->base_x - 18000), Abs(new->base_y - 9000)) < dist(target->x, target->y, Abs(target->base_x - 18000), Abs(target->base_y - 9000))))
+        return (new);
+    else if (new->type == 2)
         return (new);
     else
         return (target);
@@ -136,10 +140,10 @@ entity_t *closest_monster(entity_t *ents)
     target_monster = NULL;
     for (int i = 0; i < ents->ent_count; i++)
     {
-        if (!ents[i].type && ents[i].threat_for == 1 && dist(ents->base_x, ents->base_y, ents[i].x, ents[i].y) < 7000)
+        if (!ents[i].type && ents[i].threat_for == 1 && dist(ents->base_x, ents->base_y, ents[i].x, ents[i].y) < 9000)
             target_monster = is_closer(&ents[i], target_monster);
     }
-    if (target_monster != NULL && dist(ents->base_x, ents->base_y, target_monster->x, target_monster->y) < 3500)
+    if (target_monster != NULL && dist(ents->base_x, ents->base_y, target_monster->x, target_monster->y) < 3000)
         target_monster->danger = 1;
     return (target_monster);
 }
@@ -151,7 +155,7 @@ entity_t *closest_to_enemy(entity_t *ents)
     target_hero = NULL;
     for (int i = 0; i < ents->ent_count; i++)
     {
-        if ((ents[i].type == 2 || ents[i].threat_for == 2) && dist(Abs(ents->base_x - 18000), Abs(ents->base_y - 9000), ents[i].x, ents[i].y) < 8000)
+        if ((ents[i].type == 2 || !ents[i].type) && dist(Abs(ents->base_x - 18000), Abs(ents->base_y - 9000), ents[i].x, ents[i].y) < 8500)
             target_hero = is_closer_to_enemy(&ents[i], target_hero);
     }
     return (target_hero);
@@ -273,8 +277,10 @@ int main()
                 {
                     cap = intercept(&heroes[i], target);
                     out_vect = fus_roh_dah(&heroes[i], 0);
-                    if (target->danger == 1 && heroes->mana > 10 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 1280 && !target->shield_life)
+                    if (target->danger == 1 && heroes->mana > 10 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 1280 && !target->shield_life && target->health > 10)
                         printf("SPELL WIND %d %d %s\n", out_vect.x, out_vect.y, heroes[i].name);
+                    else if (dist(heroes[i].base_x, heroes[i].base_y, target->x, target->y) > 7500 && target->health > 20 && !target->is_controlled && heroes->mana > 30)
+                        printf("SPELL CONTROL %d %d %d\n", target->id, out_vect.x, out_vect.y);
                     else
                         printf("MOVE %d %d %s\n", cap.x, cap.y, heroes[i].name);
                 }
@@ -293,9 +299,11 @@ int main()
                 {
                     out_vect = fus_roh_dah(&heroes[i], 1);
                     cap = attack(&heroes[i], target);
-                    if (dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 1280 && heroes[i].mana > 20 && !target->type && !target->shield_life)
+                    if (dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 1280 && heroes->mana > 20 && !target->type && !target->shield_life && (target->health > 12 || dist(Abs(heroes[i].base_x - 18000), Abs(heroes[i].base_y), target->x, target->y) < 2500))
                         printf("SPELL WIND %d %d %s\n", out_vect.x, out_vect.y, heroes[i].name);
-                    else if (dist(heroes[i].x, heroes[i].y, target->x, target->y) > 1280)
+                    else if (dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 2200 && target->near_base == 1 && heroes->mana > 20 && dist(Abs(heroes[i].base_x - 18000), Abs(heroes[i].base_y), target->x, target->y) > 2000 && target->health > 14 && !target->shield_life)
+                        printf("SPELL SHIELD %d\n", target->id);
+                    else if (dist(heroes[i].x, heroes[i].y, target->x, target->y) > 850)
                         printf("MOVE %d %d %s\n", cap.x, cap.y, heroes[i].name);
                     else
                         printf("WAIT %s\n", heroes[i].name);
