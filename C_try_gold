@@ -28,6 +28,7 @@ typedef struct entity_s{
     int threat_for;
     int danger;
     int targeted;
+    int spell_casted;
 }   entity_t;
 
 typedef struct hero_s{
@@ -85,7 +86,7 @@ int dist(int a, int b, int x, int y)
     return (sqrt((x - a) * (x - a)  + (y - b) * (y - b)));
 }
 
-t_dot   def_placement(hero_t hero, r_place pos, int turns)
+t_dot   def_placement(hero_t hero, r_place pos, int phase)
 {
     t_dot   coords;
 
@@ -96,12 +97,17 @@ t_dot   def_placement(hero_t hero, r_place pos, int turns)
             coords.x = cos(pos.wing_angle) * pos.radius;
             coords.y = sin(pos.wing_angle) * pos.radius;
         }
-        else if (pos.i == 1)
+        else if (pos.i == 2)
         {
-            if (turns < 60)
+            if (phase == 1)
             {
                 coords.x = 9000;
                 coords.y = 4500;
+            }
+            else if (phase == 2)
+            {
+                coords.x = 5500;
+                coords.y = 4000;
             }
             else
             {
@@ -122,12 +128,17 @@ t_dot   def_placement(hero_t hero, r_place pos, int turns)
             coords.x = 18000 - cos(pos.wing_angle) * pos.radius;
             coords.y = 9000 - sin(pos.wing_angle) * pos.radius;
         }
-        else if (pos.i == 1)
+        else if (pos.i == 2)
         {
-            if (turns < 60)
+            if (phase == 1)
             {
                 coords.x = 9000;
                 coords.y = 4500;
+            }
+            else if (phase == 2)
+            {
+                coords.x = 12000;
+                coords.y = 5000;
             }
             else
             {
@@ -180,7 +191,8 @@ entity_t *is_closer(entity_t *new, entity_t *target)
 
 entity_t *is_closer_to_enemy(entity_t *new, entity_t *target)
 {
-    if (!target || (!new->type && target->type == 2) || (new->type != 1 && dist(new->x, new->y, Abs(new->base_x - 18000), Abs(new->base_y - 9000)) < dist(target->x, target->y, Abs(target->base_x - 18000), Abs(target->base_y - 9000))))
+    if (!target || dist(new->x, new->y, Abs(new->base_x - 18000), Abs(new->base_y - 9000)) \
+            < dist(target->x, target->y, Abs(target->base_x - 18000), Abs(target->base_y - 9000)))
         return (new);
     else
         return (target);
@@ -198,7 +210,7 @@ entity_t *closest_monster(entity_t *ents)
         else if (!ents[i].targeted && !ents[i].type && dist(ents->base_x, ents->base_y, ents[i].x, ents[i].y) < 9000)
             target_monster = is_closer(&ents[i], target_monster);
     }
-    if (target_monster && dist(ents->base_x, ents->base_y, target_monster->x, target_monster->y) < 1900)
+    if (target_monster && dist(ents->base_x, ents->base_y, target_monster->x, target_monster->y) < 2000)
         target_monster->danger = 2;
     else if (target_monster && dist(ents->base_x, ents->base_y, target_monster->x, target_monster->y) < 3750)
         target_monster->danger = 1;
@@ -207,26 +219,32 @@ entity_t *closest_monster(entity_t *ents)
     return (target_monster);
 }
 
-entity_t *closest_to_enemy(entity_t *ents, int turns)
+entity_t *closest_to_enemy(entity_t *ents, int phase)
 {
     entity_t *target_enemy;
     int turns_shift;
+    int dist_enemy_base;
 
-    if (turns < 60)
-        turns_shift = 11500;
+    if (phase == 1)
+    {
+        turns_shift = 13500;
+        dist_enemy_base = 5000;
+    }
     else
+    {
         turns_shift = 8500;
+        dist_enemy_base = 2800;
+    }
     target_enemy = NULL;
     for (int i = 0; i < ents->ent_count; i++)
     {
         if (!ents[i].type && dist(Abs(ents->base_x - 18000), Abs(ents->base_y - 9000), ents[i].x, ents[i].y) < turns_shift \
-                && dist(Abs(ents->base_x - 18000), Abs(ents->base_y - 9000), ents[i].x, ents[i].y) > 2800 && !ents[i].shield_life)
-                //&& (turns < 80 || (turns >= 80 && ents[i].health >= 14)))
+                && dist(Abs(ents->base_x - 18000), Abs(ents->base_y - 9000), ents[i].x, ents[i].y) > dist_enemy_base && !ents[i].shield_life)
             target_enemy = is_closer_to_enemy(&ents[i], target_enemy);
         else if (ents[i].type == 2 && target_enemy && target_enemy->type != 0 \
                 && dist(Abs(ents->base_x - 18000), Abs(ents->base_y - 9000), ents[i].x, ents[i].y) < turns_shift \
-                && dist(Abs(ents->base_x - 18000), Abs(ents->base_y - 9000), ents[i].x, ents[i].y) > 2800 && !ents[i].shield_life \
-                && turns > 60)
+                && dist(Abs(ents->base_x - 18000), Abs(ents->base_y - 9000), ents[i].x, ents[i].y) > dist_enemy_base && !ents[i].shield_life \
+                && phase > 1)
             target_enemy = is_closer_to_enemy(&ents[i], target_enemy);
     }
     return (target_enemy);
@@ -277,7 +295,7 @@ entity_t *spider_nearby(entity_t *ents, hero_t *hero)
 {
     for (int i = 0; i < ents->ent_count; i++)
     {
-        if (!ents[i].type && dist(ents[i].x, ents[i].y, hero->x, hero->y) < 3000)
+        if (!ents[i].type && dist(ents[i].x, ents[i].y, hero->x, hero->y) <= 1280)
             return (&ents[i]);
     }
     return (NULL);
@@ -305,40 +323,53 @@ int spider_on_trajectory(entity_t *target, entity_t *ents, hero_t *hero)
     return (0);
 }
 
-entity_t *enemy_hero_near_base(entity_t *ents, hero_t *heroes, int turns)
+entity_t *enemy_hero_near_base(entity_t *ents)
 {
+    entity_t *prev_hero;
+
+    prev_hero = NULL;
     for (int i = 0; i < ents->ent_count; i++)
     {
         if (ents[i].type == 2 && (dist(ents[i].x, ents[i].y, ents->base_x, ents->base_y) < 6200 \
-                || (dist(ents[i].x, ents[i].y, ents->base_x, ents->base_y) < 8000 \
-                && !ents[i].shield_life && dist(heroes[2].x, heroes[2].y, ents[i].x, ents[i].y) <= 3000)))
-            return (&ents[i]);
-        else if (turns < 50 && ents[i].type == 2 && (dist(ents[i].x, ents[i].y, ents->base_x, ents->base_y) < 6250))
-            return (&ents[i]);
+                || (dist(ents[i].x, ents[i].y, ents->base_x, ents->base_y) < 10000 \
+                && !ents[i].shield_life))
+                && (!prev_hero || (prev_hero && dist(ents[i].x, ents[i].y, ents->base_x, ents->base_y) \
+                < dist(prev_hero->x, prev_hero->y, ents->base_x, ents->base_y))))
+            prev_hero = &ents[i];
     }
-    return (NULL);
+    return (prev_hero);
 }
 
-entity_t *smart_target_select(entity_t *ents, hero_t *heroes, entity_t *target, int i, int turns)
+entity_t *smart_target_select(entity_t *ents, hero_t *heroes, entity_t *target, t_dot cap, int i, int turns)
 {
     entity_t *temp;
 
     target = closest_monster(ents);
-    if (i == 2 && heroes[i].hero_target && target->danger != 2)
-        return (heroes[i].hero_target);
+    /*if (i == 2 && heroes[i].hero_target && target->danger != 2)
+        return (heroes[i].hero_target);*/
     heroes[i].target = target;
-    if (i == 0 && target && dist(heroes[2].x, heroes[2].y, target->x, target->y) < dist(heroes[0].x, heroes[0].y, target->x, target->y))
+    if (target && dist(heroes[i].x, heroes[i].y, cap.x, cap.y) > 2200 \
+            && dist(heroes[i].base_x, heroes[i].base_y, target->x, target->y) > 6000)
+    {
+        target->targeted = 0;
+        target = NULL;
+    }
+    else if (i == 0 && target && dist(heroes[1].x, heroes[1].y, target->x, target->y) < dist(heroes[0].x, heroes[0].y, target->x, target->y))
     {
         temp = closest_monster(ents);
-        if (temp && !target->danger)
+        if (temp && !target->danger && !(dist(heroes[1].x, heroes[1].y, target->x, target->y) \
+                < dist(heroes[0].x, heroes[0].y, target->x, target->y) \
+                && dist(heroes[0].x, heroes[0].y, target->x, target->y) < dist(heroes[0].x, heroes[0].y, temp->x, temp->y)))
             target = temp;
         heroes[0].target->targeted = 0;
     }
-    else if (i == 2 && heroes[0].target && (((heroes[0].target->danger == 2 \
-            && dist(heroes[0].x, heroes[0].y, heroes[0].target->x, heroes[0].target->y) > 1700) \
-            && dist(heroes[0].x, heroes[0].y, heroes[2].x, heroes[2].y) <= 2600) \
+    else if (i == 1 && heroes[0].target && (dist(cap.x, cap.y, heroes[0].target->x, heroes[0].target->y) < 2500\
+            || ((heroes[0].target->danger == 2 \
+            && dist(heroes[0].x, heroes[0].y, heroes[0].target->x, heroes[0].target->y) > \
+            dist(heroes[1].x, heroes[1].y, heroes[0].target->x, heroes[0].target->y) \
+            && dist(heroes[1].x, heroes[1].y, heroes[0].target->x, heroes[0].target->y) < 2000) \
             || (heroes[0].target->danger == 1 && heroes[0].target->shield_life) \
-            || !target || dist(heroes[0].target->x, heroes[0].target->y, target->x, target->y) < 3000))
+            || !target /*|| dist(heroes[0].target->x, heroes[0].target->y, target->x, target->y) < 2000*/)))
         target = heroes[0].target;
     return(target);
 }
@@ -352,9 +383,9 @@ int ronde(hero_t *heroes, t_dot *cap, int rot, int i)
     vect = radius + 1000;
     if (heroes[i].x == cap->x && heroes[i].y == cap->y && (!rot || rot == -1))
     {
-        if (i < 2)
+        if (!i || i == 2)
             rot = 1;
-        if (i == 2)
+        else
             rot = -1;
     }
     else if (heroes[i].x == cap->x && heroes[i].y == cap->y && rot == 1)
@@ -384,14 +415,59 @@ int ronde(hero_t *heroes, t_dot *cap, int rot, int i)
     return(rot);
 }
 
+entity_t *get_phase2_spider(entity_t *ents)
+{
+    entity_t *target;
+
+    target = NULL;
+    for (int i = 0; i < ents->ent_count; i++)
+    {
+        if (!ents[i].type && ((target && dist(ents[i].x, ents[i].y, ents->base_x, ents->base_x) \
+                < dist(target->x, target->y, ents->base_x, ents->base_x)) || !target)/* && !ents[i].targeted*/)
+            target = &ents[i];
+    }
+    return (target);
+}
+
+entity_t *defend_vs_hero(entity_t *ents, hero_t *hero, int turns)
+{
+    entity_t *target;
+    entity_t *hero_threat;
+
+    hero_threat = enemy_hero_near_base(ents);
+    target = get_phase2_spider(ents);
+    if (hero_threat)
+        return (hero_threat);
+    else
+        return (target);
+}
+
 t_dot   pos_after_wind(t_dot out_vect)
 {
     t_dot coords;
-    int min_coord = min(out_vect.x, out_vect.y);
+    int max_coord = max(out_vect.x, out_vect.y);
 
-    coords.x = (int)((float)out_vect.x / (float)min_coord) * 2000;
-    coords.y = (int)((float)out_vect.y / (float)min_coord) * 2000;
+    coords.x = (int)((float)out_vect.x / (float)max_coord) * 200;
+    coords.y = (int)((float)out_vect.y / (float)max_coord) * 200;
     return (coords);
+}
+
+entity_t *can_wind(entity_t *target, entity_t *ents)
+{
+
+    for (int i = 0; i < ents->ent_count; i++)
+    {
+        if (!ents[i].type && dist(target->x, target->y, ents[i].x, ents[i].y < 1800))
+            return (&ents[i]);
+    }
+    return (NULL);
+}
+
+int last_resort_wind(entity_t *ents, hero_t *hero)
+{
+    if (dist(hero->x, hero->y, hero->base_x, hero->base_y) < 1500 && spider_nearby(ents, hero))
+        return (1);
+    return (0);
 }
 
 int main()
@@ -448,9 +524,9 @@ int main()
                 if (j == 0)
                     heroes[j].name = "Legolas";
                 else if (j == 1)
-                    heroes[j].name = "Aragorn";
-                else if (j == 2)
                     heroes[j].name = "Gimli";
+                else if (j == 2)
+                    heroes[j].name = "Aragorn";
                 j++;
             }
         }
@@ -458,29 +534,29 @@ int main()
         pos.radius = 6000;
         pos.wing_angle = 3.14 / 8;
         pos.center_angle = 3.14 / 6;
-        int spell_casted = 0;
+        //int spell_casted = 0;
         for (int i = 0; i < heroes_per_player; i++){
             static int opponent_attack;
+            static int spider_controlled;
             t_dot out_vect;
             entity_t *target;
 
             //------------------ Gimli and Legolas defend ---------------//
-            if (i == 0 || i == 2)
+            if (i < 2)
             {
                 entity_t *hero_threat;
                 t_dot cap;
                 static int  rot_l;
                 static int  rot_g;
-                static int  chase;
-                static entity_t *chased_hero;
 
                 pos.i = i;
-                target = smart_target_select(ents, heroes, target, i, turns);
-                hero_threat = enemy_hero_near_base(ents, heroes, turns);
+                cap = def_placement(heroes[i], pos, turns);
+                target = smart_target_select(ents, heroes, target, cap, i, turns);
+                hero_threat = enemy_hero_near_base(ents);
                 if (hero_threat)
                     opponent_attack = 1;
                 // no target
-                if (!chase && (!target || (target->is_controlled && target->threat_for != 1)))
+                if (!target || (target->is_controlled && target->threat_for != 1))
                 {
                     cap = def_placement(heroes[i], pos, turns);
                     if (!i)
@@ -498,20 +574,20 @@ int main()
                     cap = attack(&heroes[i], target);
                     out_vect = fus_roh_dah(&heroes[i], 0);
                     
-                    if (heroes[Abs(i - 2)].is_controlled && heroes->mana > 10 && target->danger < 2 \
-                            && dist(heroes[i].x, heroes[i].y, heroes[Abs(i - 2)].x, heroes[Abs(i - 2)].y) <= 2200)
-                        printf("SPELL SHIELD %d %s\n", heroes[Abs(i - 2)].id, "NOPE !");
+                    if (heroes[Abs(i - 1)].is_controlled && heroes->mana > 10 && target->danger < 2 \
+                            && dist(heroes[i].x, heroes[i].y, heroes[Abs(i - 1)].x, heroes[Abs(i - 1)].y) <= 2200)
+                        printf("SPELL SHIELD %d %s\n", heroes[Abs(i - 1)].id, "NOPE !");
                     else if (ctrl && hero_threat && heroes->mana > 20 && !heroes[i].shield_life && target->danger < 2)
                         printf("SPELL SHIELD %d %s\n", heroes[i].id, "NOPE !");
-                    else if (hero_threat && dist(heroes[i].x, heroes[i].y, hero_threat->x, hero_threat->y) \
-                            < dist(heroes[Abs(i - 2)].x, heroes[Abs(i - 2)].y, hero_threat->x, hero_threat->y) && target->danger != 2)
+                    /*else if (hero_threat && dist(heroes[i].x, heroes[i].y, hero_threat->x, hero_threat->y) \
+                            < dist(heroes[Abs(i - 2)].x, heroes[Abs(i - 2)].y, hero_threat->x, hero_threat->y) && !target->danger)
                     {
-                        if (dist(heroes[i].x, heroes[i].y, hero_threat->x, hero_threat->y) <= 1280 && heroes->mana > 25 \
+                        if (dist(heroes[i].x, heroes[i].y, hero_threat->x, hero_threat->y) <= 1100 && heroes->mana > 25 \
                             && !hero_threat->shield_life )
                             printf("SPELL WIND %d %d %s\n", out_vect.x, out_vect.y, "Go home !");
                         else
                             printf("MOVE %d %d %s\n", hero_threat->x, hero_threat->y, "foreal ?");
-                    }
+                    }*/
 
 
                     //--------\CHANTIER/--------//
@@ -566,15 +642,16 @@ int main()
 
 
                     else if (heroes->mana >= 10 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 1280 \
-                            && !target->shield_life && ((target->health > 9 && target->danger == 1) || target->danger == 2))
+                            && !target->shield_life && ((target->health > 12 && target->danger == 1) || target->danger == 2))
                         printf("SPELL WIND %d %d %s\n", out_vect.x, out_vect.y, "fus-roh-DAH !");
-                    else if (!spell_casted && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 2200 \
+                    else if (!target->spell_casted && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 2200 \
                             && target->health > 15 && turns > 90 && !target->is_controlled && target->threat_for != 2 \
                             && ((heroes->mana > 55 && dist(heroes[i].base_x, heroes[i].base_y, target->x, target->y) > 7000) \
-                            || (heroes->mana > 25 && dist(heroes[i].base_x, heroes[i].base_y, target->x, target->y) > 5300)))
+                            || (heroes->mana > 25 && dist(heroes[i].base_x, heroes[i].base_y, target->x, target->y) > 4800)))
                     {
                         printf("SPELL CONTROL %d %d %d %s\n", target->id, Abs(heroes[i].base_x - 18000), Abs(heroes[i].base_y - 9000), "Go there !");
-                        spell_casted = 1;
+                        target->spell_casted = 1;
+                        spider_controlled += 1;
                     }
                     else if (!target->is_controlled && target->threat_for != 2)
                         printf("MOVE %d %d %s\n", cap.x, cap.y, heroes[i].name);
@@ -586,22 +663,33 @@ int main()
             //--------------- Aragorn attacks -----------------//
             else
             {
-                int phase;
+                static int phase;
                 static int ctrl_casted;
                 static int ctrl_block;
                 static int rot_a;
                 static int searching;
                 static int spider_pushed;
+                static int chase;
                 static t_dot enemy_hero_move;
+                static entity_t *chased_hero;
                 entity_t *victime;
                 t_dot cap_a;
 
-                if (turns < 45)
-                    phase = 1;
-                else
-                    phase = 2;
+                if (phase == 2)
+                    target = defend_vs_hero(ents, &heroes[i], turns);
 
-                target = closest_to_enemy(ents, turns);
+                if ((turns < 55 && !enemy_hero_near_base(ents)) || turns < 45)
+                    phase = 1;
+                else if (turns < 100 && !(phase == 3))
+                    phase = 2;
+                else if (ents->ent_count < 12 && !heroes[0].target->danger && !heroes[1].target->danger && !can_wind(target, ents))
+                    phase = 3;
+                
+
+                if (phase == 1 || phase == 3)
+                    target = closest_to_enemy(ents, phase);
+                else
+                    target = defend_vs_hero(ents, &heroes[i], turns);
                 out_vect = fus_roh_dah(&heroes[i], 1);
                 victime = enemy_hero_nearby(ents, &heroes[i]);
 
@@ -613,12 +701,13 @@ int main()
                 // no target
                 if (!target)
                 {
-                    cap_a = def_placement(heroes[i], pos, turns);
+                    cap_a = def_placement(heroes[i], pos, phase);
                     rot_a = ronde(heroes, &cap_a, rot_a, i);
                 }
                 // has a target
                 else
                 {
+                    // init movement and CONTROL spell monitoring
                     cap_a = attack(&heroes[i], target);
                     if (ctrl_block == 1 && ctrl_casted > 0)
                     {
@@ -627,44 +716,146 @@ int main()
                             ctrl_block = 0;
                     }
 
-                    if (turns > 80 && ctrl_a && heroes->mana > 30 && !heroes[i].shield_life && victime)
+                    //---------------------------------------- phase 2 tasks ---------------------------------------------//
+                    if ( phase == 2 && ctrl && victime && target->type == 2 && heroes->mana > 20 && !heroes[i].shield_life && target->danger < 2)
+                        printf("SPELL SHIELD %d %s\n", heroes[i].id, "NOPE !");
+
+                    //------- chasing hero away ---------//
+                    
+                    else if (phase == 2 && target->type == 2 && can_wind(target, ents) && !target->shield_life && heroes->mana > 10)
+                    {
+                        if (dist(heroes[i].x, heroes[i].y, target->x, target->y) > 1000)
+                            printf("MOVE %d %d %s\n", target->x, target->y, heroes[i].name);
+                        else
+                            printf("SPELL WIND %d %d %s \n", out_vect.x, out_vect.y, "Go home !");
+                    }
+                    /*else if (phase == 2 && chase == 1)
+                    {
+                        t_dot vect;
+                        entity_t *new_pos;
+
+                        new_pos = is_near(ents, chased_hero);
+                        vect = pos_after_wind(out_vect);
+                        if (((chased_hero && dist(heroes[i].x, heroes[i].y, chased_hero->x + vect.x, chased_hero->y + vect.y) <= 1000) \
+                                || (new_pos && dist(heroes[i].x, heroes[i].y, new_pos->x, new_pos->y) <= 1000)) && heroes->mana >= 10)
+                            printf("SPELL WIND %d %d %s \n", out_vect.x, out_vect.y, "Go home !");
+                        else if (target_hero)
+                            printf("MOVE %d %d %s\n", target_hero->x + vect.x, target_hero->y + vect.y, heroes[i].name);
+                        else if (chased_hero)
+                            printf("MOVE %d %d %s\n", chased_hero->x + vect.x, chased_hero->y + vect.y, heroes[i].name);
+                        chase = 2;
+                        chased_hero = new_pos;
+                    }
+
+                    else if (phase == 2 && chase == 2)
+                    {
+                        t_dot vect;
+
+                        vect = pos_after_wind(out_vect);
+                        if (chased_hero && dist(heroes[i].x, heroes[i].y, chased_hero->x + vect.x, chased_hero->y + vect.y) <= 1000 && heroes->mana >= 10)
+                            printf("SPELL WIND %d %d %s \n", out_vect.x, out_vect.y, "Go home !");
+                        else
+                            printf("MOVE %d %d %d\n", heroes[i].base_x, heroes[i].base_y, phase);
+                        chase = 0;
+                        chased_hero = NULL;
+                    }*/
+
+                    //--------------------//
+
+                    else if (phase == 2 && !target->spell_casted && !target->type && heroes->mana > 80 && !target->shield_life && target->health > 15 \
+                            && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 2200 && target->threat_for != 2 \
+                            && dist(heroes[i].base_x, heroes[i].base_y, target->x, target->y) > 4500)
+                    {
+                        cast_ctrl(&ctrl_casted, &ctrl_block, heroes, target, i, 0);
+                        spider_controlled += 1;
+                    }
+                    /*else if (phase == 2 && target->type == 2 && dist(heroes[i].x, heroes[i].y, target->x, target->y) \
+                            <= 1000 && heroes->mana >= 20 && !target->shield_life)
+                    {
+                            out_vect = fus_roh_dah(&heroes[i], 0);
+                            cast_ctrl(&ctrl_casted, &ctrl_block, heroes, target, i, 0);
+                    }*/
+                    else if (phase == 2)
+                    {
+                        if (last_resort_wind(ents, &heroes[i]) && heroes->mana >= 10)
+                            printf("SPELL WIND %d %d %s \n", out_vect.x, out_vect.y, "Ouste !");
+                        else if (!target->type && target->threat_for != 2)
+                            printf("MOVE %d %d %s\n", target->x, target->y, heroes[i].name);
+                        else if (!target->type && target->threat_for == 2)
+                        {
+                            cap_a = def_placement(heroes[i], pos, phase);
+                            rot_a = 0;
+                            rot_a = ronde(heroes, &cap_a, rot_a, i);
+                        }
+                        else
+                            printf("MOVE %d %d %s\n", target->x, target->y, "foreal ?");
+                    }
+
+
+
+                    /*else if (hero_threat && dist(heroes[i].x, heroes[i].y, hero_threat->x, hero_threat->y) \
+                            < dist(heroes[Abs(i - 2)].x, heroes[Abs(i - 2)].y, hero_threat->x, hero_threat->y) && !target->danger)
+                    {
+                        if (dist(heroes[i].x, heroes[i].y, hero_threat->x, hero_threat->y) <= 1100 && heroes->mana > 25 \
+                            && !hero_threat->shield_life )
+                            printf("SPELL WIND %d %d %s\n", out_vect.x, out_vect.y, "Go home !");
+                        else
+                            printf("MOVE %d %d %s\n", hero_threat->x, hero_threat->y, "foreal ?");
+                    }*/
+                    //---------------------------------------- phase 3 tasks ---------------------------------------------//
+                    
+                    else if (phase == 3 && ctrl_a && heroes->mana > 30 && !heroes[i].shield_life && victime)
                         printf("SPELL SHIELD %d %s\n", heroes[i].id, "Zzziiing !");
-                    else if (phase == 3 && spider_pushed && victime && dist(heroes[i].x, heroes[i].y, victime->x, victime->y) <= 2200 \
+                    /*else if (phase == 3 && spider_pushed && victime && dist(heroes[i].x, heroes[i].y, victime->x, victime->y) <= 2200 \
                             && heroes->mana > 10 && !victime->shield_life \
                             && dist(Abs(heroes->base_x - 18000), Abs(heroes->base_y - 9000), heroes[i].x + pos_after_wind(out_vect).x, heroes[i].y + pos_after_wind(out_vect).y) < 5000)
-                        cast_ctrl(&ctrl_casted, &ctrl_block, heroes, victime, i, 1);
-                    else if (phase == 3 && turns > 80 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 2200 \
-                            && target->near_base == 1 && target->threat_for == 2 && heroes->mana > 20 \
-                            && dist(Abs(heroes[i].base_x - 18000), Abs(heroes[i].base_y), target->x, target->y) / target->health \
-                            < 500 && !target->shield_life)
-                        printf("SPELL SHIELD %d %s\n", target->id, "Zzziiing !");
-                    else if (turns > 60 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 1280 \
+                        cast_ctrl(&ctrl_casted, &ctrl_block, heroes, victime, i, 1);*/
+                    else if (phase == 3 && !ctrl_block && target->type == 2 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 2200 \
+                            && !target->shield_life && heroes->mana > 30 && hero_on_trajectory(target, ents, &heroes[i]))
+                        cast_ctrl(&ctrl_casted, &ctrl_block, heroes, target, i, 1);
+                    else if (phase == 3 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 1280 \
                             && heroes->mana > 20 && !target->type && !target->shield_life \
                             && dist(Abs(heroes[i].base_x - 18000), Abs(heroes[i].base_y - 9000), target->x, target->y) < 7000 \
                             && (dist(Abs(heroes[i].base_x - 18000), Abs(heroes[i].base_y - 9000), target->x, target->y) / target->health < 650 \
-                            || dist(Abs(heroes[i].base_x - 18000), Abs(heroes[i].base_y - 9000), target->x, target->y) < 2100 \
                             || !hero_on_trajectory(target, ents, &heroes[i])))
                     {
                         printf("SPELL WIND %d %d %s \n", out_vect.x, out_vect.y, "fus-roh-DAH !");
                         spider_pushed = 4;
                     }
+                    else if (phase == 3 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 2200 \
+                            && dist(Abs(heroes[i].base_x - 18000), Abs(heroes[i].base_y - 9000), target->x, target->y) < 6500 && target->threat_for == 2 && heroes->mana > 20 \
+                            && dist(Abs(heroes[i].base_x - 18000), Abs(heroes[i].base_y), target->x, target->y) / target->health \
+                            < 500 && !target->shield_life)
+                        printf("SPELL SHIELD %d %s\n", target->id, "Zzziiing !");
+                    /*else if (phase == 3 && spider_pushed && victime && dist(heroes[i].x, heroes[i].y, victime->x, victime->y) <= 2200 \
+                            && heroes->mana > 10 && !victime->shield_life \
+                            && dist(Abs(heroes->base_x - 18000), Abs(heroes->base_y - 9000), heroes[i].x + pos_after_wind(out_vect).x, heroes[i].y + pos_after_wind(out_vect).y) < 5000)
+                        cast_ctrl(&ctrl_casted, &ctrl_block, heroes, victime, i, 1);*/
                     // seeks to control enemies away from their base
-                    else if (!ctrl_block && opponent_attack &&!target->type && turns > 95 && target->threat_for != 2 && heroes->mana > 30 \
+                    else if (phase == 3 && !ctrl_block && !target->type && target->threat_for != 2 && heroes->mana > 30 \
                             && dist(Abs(heroes[i].base_x - 18000), Abs(heroes[i].base_y - 9000), target->x, target->y) > 6200)
                         cast_ctrl(&ctrl_casted, &ctrl_block, heroes, target, i, 0);
-                    else if (!ctrl_block && opponent_attack && target->type == 2 && turns > 95 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 2200 \
-                            && !target->shield_life && heroes->mana > 45 && spider_on_trajectory(target, ents, &heroes[i]))
+                    else if (phase == 3 && !ctrl_block && target->type == 2 && dist(heroes[i].x, heroes[i].y, target->x, target->y) <= 2200 \
+                            && !target->shield_life && heroes->mana > 30 && hero_on_trajectory(target, ents, &heroes[i]))
                         cast_ctrl(&ctrl_casted, &ctrl_block, heroes, target, i, 1);
-
+                    else if (phase == 3 && !target->type && dist(heroes[i].x, heroes[i].y, target->x, target->y) > 1200 && heroes->mana > 20)
+                        printf("MOVE %d %d %s\n", cap_a.x, cap_a.y, heroes[i].name);
+                    
+                    
+                    
+                    
+                    
+                    
                     // if no spell can be casted, move towards the target
                     else
                     {
-                        if (!target->type || (target->type && !(enemy_hero_move.x == target->x && enemy_hero_move.y == target->y)))
+                        if ((phase == 1 && !target->type) || (target->type && !(enemy_hero_move.x == target->x && enemy_hero_move.y == target->y)))
                             printf("MOVE %d %d %s\n", cap_a.x, cap_a.y, heroes[i].name);
                         else
                         {
-                            cap_a = def_placement(heroes[i], pos, turns);
-                            printf("MOVE %d %d %s\n", cap_a.x, cap_a.y, heroes[i].name);
+                            cap_a = def_placement(heroes[i], pos, phase);
+                            rot_a = ronde(heroes, &cap_a, rot_a, i);
+                            //printf("MOVE %d %d %s\n", cap_a.x, cap_a.y, heroes[i].name);
                         }
                         enemy_hero_move.x = target->x;
                         enemy_hero_move.y = target->y;
